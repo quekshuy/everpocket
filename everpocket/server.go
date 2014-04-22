@@ -16,7 +16,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
     /*fmt.Fprint(w, "Hello world")*/
     c := appengine.NewContext(r)
     u := user.Current(c)
-    if u == nil { 
+    if u == nil {
         url, err := user.LoginURL(c, r.URL.String())
         if err != nil {
             http.Error(w, err.Error(), http.StatusInternalServerError)

@@ -1,4 +1,4 @@
-package everpocket
+package data
 
 import (
     "os"
@@ -93,7 +93,8 @@ func CreateDataStore() (error) {
     }
 
     if _, err := db.Exec(SQL_DDL); err != nil {
-        log.Fatalf("Error creating databaset table")
+        log.Printf("Error creating database table: %v", err)
+        return err
     }
 
     return nil;

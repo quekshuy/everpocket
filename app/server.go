@@ -39,11 +39,16 @@ func EvernoteCallbackHandler(res http.ResponseWriter, req *http.Request) {
     token := req.Form.Get("oauth_token")
     verifier := req.Form.Get("oauth_verifier")
 
+    log.Printf("Token = %v, verifier = %v", token, verifier)
+
     if token != "" && verifier != "" {
         // get the matching EverpocketCreds
-        creds := data.GetEverpocketCreds(map[string]string{
+        creds, _ := data.GetEverpocketCreds(map[string]string{
             "ev_temp_request_token": token,
         })
+
+        log.Printf("Creds = %v", creds)
+
         // use the verifier to exchange for the access token
         accessToken, accessSecret, addData, err := auth.GetEvernoteAccessToken(
             EVERNOTE_HOST,

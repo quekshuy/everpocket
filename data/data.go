@@ -88,22 +88,35 @@ func (c *EverpocketCreds) Write() (error) {
     return err
 }
 
-// Delete removes a row from the database.
-func (c *EverpocketCreds) Delete(tokens map[string]string) (error) {
-    params := []string{}
-    args := []interface{}{}
+
+// whereClause generates the "WHERE x=y AND ..." part of an 
+// SQL query.
+func whereClause(tokens map[string]string) (stmt string, args []interface{}) {
+
+    places := []string{}
     i := 1
+
     for k, v := range tokens {
-        params = append(params, k  + "=$" + strconv.Itoa(i))
-        /*params = append(params, "?=?")*/
         args = append(args, v)
+        places = append(places, k+"=$"+strconv.Itoa(i))
         i++
     }
 
+    // only if there are tokens
+    if i != 1 {
+        return " WHERE " + strings.Join(places, " AND "), args
+    }
+    return "", args
+}
+
+// Delete removes a row from the database.
+func (c *EverpocketCreds) Delete(tokens map[string]string) (error) {
+
     db := getDbConn()
 
-    formatted := strings.Join([]string{"WHERE", strings.Join(params, " AND ")}, " ")
-    sqlStatement := "DELETE FROM " + TABLE_NAME + " " + formatted + ";"
+    formatted, args := whereClause(tokens)
+    sqlStatement := "DELETE FROM " + TABLE_NAME  + formatted + ";"
+    //log.Print("delete sql statement: ", sqlStatement, ", args: ", args)
     stmt, err := db.Prepare(sqlStatement)
     if err != nil {
         log.Fatal("Error preparing: ", err)
@@ -112,28 +125,15 @@ func (c *EverpocketCreds) Delete(tokens map[string]string) (error) {
     return err
 }
 
-// formatMapIntoQuerySlice will take a map[string]string and 
-// turn it into a slice that does arranges pairwise the key and the value.
-// Returns that slice (as []interface{} because the DB driver only accepts 
-// []interface{}... as argument.
-func formatMapIntoQuerySlice(params map[string]string) []interface{} {
-    s := make([]interface{}, len(params) * 2)
-    values := make([]interface{}, len(params))
-    for k, v := range params {
-        s = append(s, k)
-        values = append(values, v)
-    }
-    return append(s, values...)
-}
-
-func GetEverpocketCreds(tokens map[string]string) *EverpocketCreds {
+func GetEverpocketCreds(tokens map[string]string) (*EverpocketCreds, error) {
 
     // format tokens into a slice, with the following sequence: 
     // column_name1, column_value1, column_name2, ....
-    tokensAsSlice := formatMapIntoQuerySlice(tokens)
 
     db := getDbConn()
-    row := db.QueryRow(`SELECT * FROM everpocketcreds WHERE ? = ?;`, tokensAsSlice...)
+    where, args := whereClause(tokens)
+
+    row := db.QueryRow("SELECT * FROM " + TABLE_NAME + " " + where, args...)
     creds := EverpocketCreds{}
     var evAddData string;
     row.Scan(
@@ -144,11 +144,15 @@ func GetEverpocketCreds(tokens map[string]string) *EverpocketCreds {
         &evAddData,
     )
 
-    err := json.Unmarshal([]byte(evAddData), &creds.EvAddData)
-    if err != nil {
-        log.Fatalf("Error unmarshaling json data: %v", err)
+    if evAddData  != "" {
+
+        err := json.Unmarshal([]byte(evAddData), &creds.EvAddData)
+        if err != nil {
+            log.Fatalf("Error unmarshaling json data: %v", err)
+        }
     }
-    return &creds
+
+    return &creds, nil
 }
 
 // CreateDataStore runs the SQL required to create the table in

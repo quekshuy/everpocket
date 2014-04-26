@@ -2,7 +2,7 @@ package data
 
 import (
     "os"
-    /*"strings"*/
+    "strings"
     "strconv"
     "log"
     "encoding/json"
@@ -92,29 +92,23 @@ func (c *EverpocketCreds) Write() (error) {
 func (c *EverpocketCreds) Delete(tokens map[string]string) (error) {
     params := []string{}
     args := []interface{}{}
-    i := 0
+    i := 1
     for k, v := range tokens {
-        params = append(params, "$" + strconv.Itoa(i+1)  + "=$" + strconv.Itoa(i+2))
+        params = append(params, k  + "=$" + strconv.Itoa(i))
         /*params = append(params, "?=?")*/
-        args = append(args, k, v)
-        i += 2
+        args = append(args, v)
+        i++
     }
 
     db := getDbConn()
 
-    /*formatted := strings.Join([]string{"WHERE", strings.Join(params, " AND ")}, " ")*/
-    //log.Print("formatted = " + formatted)
-    /*sqlStatement := "DELETE FROM " + TABLE_NAME + " " + formatted + ";"*/
-    sqlStatement := "DELETE FROM everpocketcreds WHERE $1=$2"
-    log.Print("Statement = " + sqlStatement)
-    log.Printf("args = %v", args)
+    formatted := strings.Join([]string{"WHERE", strings.Join(params, " AND ")}, " ")
+    sqlStatement := "DELETE FROM " + TABLE_NAME + " " + formatted + ";"
     stmt, err := db.Prepare(sqlStatement)
-    /*_, err := db.Exec(sqlStatement, "ev_temp_request_token", "abcd")*/
     if err != nil {
         log.Fatal("Error preparing: ", err)
     }
-    _, err = stmt.Exec("ev_temp_request_token", "abcd")
-    /*_, err := stmt.Exec(args...)*/
+    _, err = stmt.Exec(args...)
     return err
 }
 

@@ -6,7 +6,7 @@ import (
 )
 
 
-func _TestWriteNormalDb(t *testing.T) {
+func TestWriteNormalDb(t *testing.T) {
     // We're having problems writing to the database.
     // Now we just want to know if a normal write would work.
     db := getDbConn()
@@ -25,9 +25,11 @@ func _TestWriteNormalDb(t *testing.T) {
     // now process the delete
     defer func() {
         stmt, _ := db.Prepare("DELETE FROM everpocketcreds WHERE ev_temp_request_token=$1")
+        t.Log("Prepared statement")
         if _, err := stmt.Exec(ev_temp_rt); err != nil {
             t.Fatal("Could not delete fake everpocketcreds")
         }
+        t.Log("Done running")
     }()
 }
 

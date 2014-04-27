@@ -29,6 +29,8 @@ const DONEPAGE = `
 <head><title></title></head>
 <body>
 <p>Congratulations. You have successfully connected.</p>
+<p><a href="%s">Now proceed to connect with Pocket.</a></p>
 </body>
 </html>
 `
+

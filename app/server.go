@@ -1,19 +1,23 @@
 package main
 
 import (
+    "os"
     "fmt"
     "log"
     "strings"
+    "strconv"
     "net/http"
     "github.com/lib/pq"
     "github.com/go-martini/martini"
 
     "github.com/quekshuy/everpocket/data"
     "github.com/quekshuy/evernote-golang-sdk/auth"
+    pauth "github.com/quekshuy/pocket-golang-sdk/auth"
 )
 
 
 const EVERNOTE_HOST = "https://sandbox.evernote.com"
+const ENV_PO_SVC_CALLBACK = "POCKET_SERVICE_CALLBACK"
 
 func InitiateEvernoteOauth() (string, error) {
     token, secret, url, _, err := auth.GetEvernoteTempRequestToken(EVERNOTE_HOST)
@@ -48,6 +52,9 @@ func EvernoteCallbackHandler(res http.ResponseWriter, req *http.Request) {
         })
 
         log.Printf("Creds = %v", creds)
+        if creds.EvTempRequestToken != token {
+            log.Fatal("Error querying DB for token ", token, ".")
+        }
 
         // use the verifier to exchange for the access token
         accessToken, accessSecret, addData, err := auth.GetEvernoteAccessToken(
@@ -75,9 +82,40 @@ func EvernoteCallbackHandler(res http.ResponseWriter, req *http.Request) {
             }
         }()
 
-        res.Write([]byte(DONEPAGE))
+        donePageUrl := fmt.Sprintf(DONEPAGE, "/connect_pocket?cid=" + strconv.Itoa(creds.Id))
+
+        res.Write([]byte(donePageUrl))
     }
 
+}
+
+func PocketCallbackHandler(res http.ResponseWriter, req *http.Request) {
+}
+
+func ConnectPocket(res http.ResponseWriter, req *http.Request) {
+
+    // Get the credentials Id 
+    var credId string
+
+    if err := req.ParseForm(); err != nil {
+        log.Fatal("Error parsing form")
+    } else {
+        credId := req.Form.Get("cid")
+    }
+
+    // Get the Pocket Request Token
+    if redirectUri := os.Getenv(ENV_PO_SVC_CALLBACK); redirectUri != "" {
+        token := pauth.GetPocketRequestToken(redirectUri)
+        /*intCredId, err := strconv.Atoi(credId)*/
+        /*if err != nil {*/
+            creds, err := data.GetEverpocketCreds(map[string]string{ "creds_id": credId })
+            if err != nil {
+                // no error, query success
+                creds.PoRequestToken = token
+                creds.Write()
+            }
+        /*}*/
+    }
 }
 
 func Login(res http.ResponseWriter, req *http.Request) {

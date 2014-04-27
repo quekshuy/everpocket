@@ -22,15 +22,21 @@ type EverpocketData interface {
 // We also need to create a table to store versions, but this is later
 // Let's not over-engineer and just write out the definitions now.
 
-const TABLE_NAME = "everpocketcreds"
+const EV_TABLE_NAME = "everpocketcreds"
 
 const SQL_DDL = `
-CREATE TABLE `  + TABLE_NAME + ` (
+CREATE TABLE `  + EV_TABLE_NAME + ` (
+    creds_id serial primary key,
     ev_temp_request_token varchar(256),
     ev_temp_secret varchar(256),
     ev_access_token varchar(256),
     ev_access_secret varchar(256),
-    ev_add_data varchar(512)
+    ev_add_data varchar(512),
+    po_request_code varchar(256),
+    po_access_token varchar(256),
+    po_username varchar(128),
+
+    create_date date not null default current_date
 );
 `
 
@@ -39,12 +45,17 @@ CREATE TABLE `  + TABLE_NAME + ` (
 // EverpocketCreds represents all the oauth tokens
 // and whatever not
 type EverpocketCreds struct {
-    // Evernote oauth interim data below
+    Id int
+    // Evernote data
     EvTempRequestToken string
     EvTempSecret string
     EvAccessToken string
     EvAccessSecret string
     EvAddData map[string]string
+
+    PoRequestCode string
+    PoAccessToken string
+    PoUsername    string
 }
 
 
@@ -69,18 +80,24 @@ func (c *EverpocketCreds) Write() (error) {
 
     db := getDbConn()
 
-    _, err = db.Exec("INSERT INTO " + TABLE_NAME + " ("+
+    _, err = db.Exec("INSERT INTO " + EV_TABLE_NAME + " ("+
                 "ev_temp_request_token, " +
                 "ev_temp_secret, "+
                 "ev_access_token, "+
                 "ev_access_secret, "+
-                "ev_add_data"+
+                "ev_add_data, "+
+                "po_request_code,"+
+                "po_access_token,"+
+                "po_username"+
             ") VALUES ($1, $2, $3, $4, $5)",
             c.EvTempRequestToken,
             c.EvTempSecret,
             c.EvAccessToken,
             c.EvAccessSecret,
             jsonEvData,
+            c.PoRequestCode,
+            c.PoAccessToken,
+            c.PoUsername,
     )
     //if err != nil {
     //    log.Fatalf("Could not write creds. %v", c)
@@ -110,12 +127,18 @@ func whereClause(tokens map[string]string) (stmt string, args []interface{}) {
 }
 
 // Delete removes a row from the database.
-func (c *EverpocketCreds) Delete(tokens map[string]string) (error) {
+func (c *EverpocketCreds) Delete() (error) {
 
+    var tokens map[string]string;
     db := getDbConn()
+    if c.EvTempRequestToken != "" {
+        tokens = map[string]string{ "ev_temp_request_token": c.EvTempRequestToken }
+    } else {
+        tokens = map[string]string{ "po_request_code": c.PoRequestCode }
+    }
 
     formatted, args := whereClause(tokens)
-    sqlStatement := "DELETE FROM " + TABLE_NAME  + formatted + ";"
+    sqlStatement := "DELETE FROM " + EV_TABLE_NAME  + formatted + ";"
     //log.Print("delete sql statement: ", sqlStatement, ", args: ", args)
     stmt, err := db.Prepare(sqlStatement)
     if err != nil {
@@ -132,16 +155,22 @@ func GetEverpocketCreds(tokens map[string]string) (*EverpocketCreds, error) {
 
     db := getDbConn()
     where, args := whereClause(tokens)
+    //log.Print("where = ", where, ", args=", args)
 
-    row := db.QueryRow("SELECT * FROM " + TABLE_NAME + " " + where, args...)
+    row := db.QueryRow("SELECT * FROM " + EV_TABLE_NAME + " " + where, args...)
     creds := EverpocketCreds{}
-    var evAddData string;
+    var evAddData, evCreatedDate string;
     row.Scan(
+        &creds.Id,
         &creds.EvTempRequestToken,
         &creds.EvTempSecret,
         &creds.EvAccessToken,
         &creds.EvAccessSecret,
         &evAddData,
+        &creds.PoRequestCode,
+        &creds.PoAccessToken,
+        &creds.PoUsername,
+        &evCreatedDate,
     )
 
     if evAddData  != "" {

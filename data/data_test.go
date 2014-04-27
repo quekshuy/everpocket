@@ -49,6 +49,8 @@ func TestGetEverpocketCreds(t *testing.T) {
     r, err := GetEverpocketCreds(map[string]string{"ev_temp_request_token": "abcd"})
     if r == nil || r.EvTempRequestToken != "abcd" {
         t.Fatal("Did not retrieve: ", r)
+    } else {
+        r.Delete()
     }
 
 }
@@ -67,7 +69,7 @@ func TestWritePartialEverpocketCreds(t *testing.T) {
         t.Fatalf("Failed to write to database: %v", err)
     }
 
-    err = creds.Delete(map[string]string{ "ev_temp_request_token": "abcd" })
+    err = creds.Delete()
     if err != nil {
         t.Fatalf("Delete failed: %v", err)
     }
